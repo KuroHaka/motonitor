@@ -12,17 +12,8 @@ from sklearn import model_selection
 from sklearn.linear_model import LogisticRegression, LinearRegression
 import numpy as np
 from pathlib import Path
-import operator
-from math import sqrt
-from statistics import mean
-import pickle
-import warnings
 from sklearn.metrics import r2_score
 from sklearn import linear_model
-
-warnings.simplefilter(action='ignore', category=pd.errors.PerformanceWarning)
-pd.options.mode.chained_assignment = None
-
 class Learner:
     ml_model = None
     dataset = None
@@ -39,22 +30,20 @@ class Learner:
         if(self.preprocess(file, brand, model)==-1):
           return -1
         self.learn()
-        return self.predict(kms, license, year, capacity, type_)
+        return self.predict(brand, model, kms, license, year, capacity, type_)
 
     def preprocess(self, file, brand, model):
         self.dataset = pd.read_csv(file)
         self.dataset = self.dataset.fillna(0)
-        df = self.dataset[self.dataset['Brand'] == brand].copy()
-        df['Same_model'] = np.where(df['Model'] == model, 1, 0)
-        df = df.drop(columns=['Brand', 'Model'])
-        if(len(df)==0):
+        if(len(self.dataset)==0):
           return -1
-        self.y = df['Price'].copy()
-        self.X = df.drop(columns=['Price']).copy()
+        self.y = self.dataset['Price'].copy()
+        self.X = self.dataset.drop(columns=['Price']).copy()
         self.X = pd.get_dummies(self.X)
         for i in self.enc:
             if i not in self.X:
                 self.X[i] = 0
+        
         self.X = self.X.reindex(sorted(self.X.columns), axis=1)
 
     def learn(self):
@@ -66,15 +55,14 @@ class Learner:
 
         return self.ml_model
 
-    def predict(self, kms, license, year, capacity, type_):
+    def predict(self, brand, model, kms, license, year, capacity, type_):
         dt = pd.DataFrame.from_dict({'Kms': [kms], 'License': [license], 'Year': [year], 'Capacity': [capacity],
-                                       'Type': [type_], 'Same_model': [1]})
-        
+                                       'Type': [type_], 'Brand': [brand], 'Model':[model]})
         dt = pd.get_dummies(dt)
         for i in self.enc:
             if i not in dt:
-                dt[i] = 0 
+                dt[i] = 0
         dt = dt.reindex(sorted(dt.columns), axis=1)
         val = self.ml_model.predict(dt)[0]
         #return self.ml_model.predict(dt)[0]
-        return "{0:.3f}".format(val)
+        return "{0:.2f}".format(val-1000)
